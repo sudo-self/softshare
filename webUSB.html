@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebUSB FAT32 Writer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
+  font-family: 'Inter', sans-serif;
+}
+
+body {
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  min-height: 100vh;
+}
+
+.glass-card {
+  background: rgba(15, 15, 15, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6578 0%, #3d4758 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #c53030 0%, #9b2c2c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.3);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(72, 187, 120, 0.3);
+}
+
+.btn-warning {
+  background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ecc94b 0%, #d69e2e 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(236, 201, 75, 0.3);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #90a3bf 0%, #718096 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(113, 128, 150, 0.3);
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, #4a5568, #718096, #4a5568);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.status-connected {
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+  box-shadow: 0 0 10px rgba(72, 187, 120, 0.5);
+}
+
+.status-error {
+  background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+  box-shadow: 0 0 10px rgba(229, 62, 62, 0.5);
+}
+
+.status-processing {
+  background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%);
+  box-shadow: 0 0 10px rgba(214, 158, 46, 0.5);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+.log-container {
+  background: rgba(10, 10, 10, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.file-input {
+  background: rgba(30, 30, 30, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+.file-input::file-selector-button {
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  margin-right: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-input::file-selector-button:hover {
+  background: linear-gradient(135deg, #5a6578 0%, #3d4758 100%);
+}
+
+.modal-overlay {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.text-glow {
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+}
+
+.header-gradient {
+  background: linear-gradient(135deg, rgba(30, 30, 30, 0.9) 0%, rgba(15, 15, 15, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-home {
+  background: linear-gradient(135deg, #5a67d8 0%, #4c51bf 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.btn-home:hover {
+  background: linear-gradient(135deg, #7c8de6 0%, #5a67d8 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(90, 103, 216, 0.3);
+}
+
+.floating-action {
+  position: relative;
+  overflow: hidden;
+}
+
+.floating-action::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  transition: left 0.5s;
+}
+
+.floating-action:hover::before {
+  left: 100%;
+}
+
+.section-title {
+  position: relative;
+  display: inline-block;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+  <!-- Header with Home Button -->
+  <div class="header-gradient w-full fixed top-0 left-0 z-40 py-4 px-6 flex justify-between items-center">
+    <div class="flex items-center">
+      <h1 class="text-2xl font-bold text-white text-glow">WebUSB FAT32 Writer</h1>
+    </div>
+    <a href="./index.html" class="btn-home px-5 py-3 rounded-xl flex items-center gap-3 floating-action">
+      <i class="fas fa-home"></i>
+      <span>Home</span>
+    </a>
+  </div>
+
+  <!-- Main Content -->
+  <div class="w-full max-w-4xl glass-card rounded-2xl p-8 mt-20">
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-bold text-white text-glow mb-2">USB Drive Manager</h1>
+      <p class="text-gray-400 text-lg">Format USB drives and write files directly from your browser</p>
+    </div>
+    
+    <!-- Status Panel -->
+    <div class="glass-card p-5 rounded-xl mb-8">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center">
+          <div id="statusIcon" class="w-4 h-4 rounded-full bg-gray-500 mr-3"></div>
+          <span id="statusText" class="font-medium text-gray-300">Disconnected</span>
+        </div>
+        <div id="deviceInfo" class="text-sm text-gray-400 hidden">
+          <span id="deviceName" class="font-medium"></span>
+        </div>
+        <button id="ejectBtn" class="btn-warning px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          <i class="fas fa-eject"></i>
+          Eject Drive
+        </button>
+      </div>
+    </div>
+    
+    <!-- Main Controls -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+      <!-- USB Operations -->
+      <div class="glass-card p-6 rounded-xl">
+        <h2 class="text-xl font-semibold text-white mb-5 flex items-center section-title">
+          <i class="fas fa-usb mr-3 text-blue-400"></i>
+          USB Operations
+        </h2>
+        <div class="flex flex-col gap-4">
+          <button id="connectBtn" class="btn-primary px-5 py-4 rounded-xl flex items-center justify-center gap-3 floating-action">
+            <i class="fas fa-plug text-blue-300"></i>
+            Connect USB Drive
+          </button>
+          <button id="formatBtn" class="btn-danger px-5 py-4 rounded-xl flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed floating-action" disabled>
+            <i class="fas fa-hammer"></i>
+            Format Drive (FAT32)
+          </button>
+        </div>
+      </div>
+      
+      <!-- File Operations -->
+      <div class="glass-card p-6 rounded-xl">
+        <h2 class="text-xl font-semibold text-white mb-5 flex items-center section-title">
+          <i class="fas fa-file-export mr-3 text-green-400"></i>
+          File Operations
+        </h2>
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-col gap-3">
+            <label for="fileInput" class="text-sm text-gray-300">Select file to write:</label>
+            <input type="file" id="fileInput" class="file-input px-4 py-3 rounded-xl">
+          </div>
+          <button id="writeBtn" class="btn-success px-5 py-4 rounded-xl flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed floating-action" disabled>
+            <i class="fas fa-file-export"></i>
+            Write File to Drive
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Progress Section -->
+    <div id="progressSection" class="glass-card p-6 rounded-xl mb-8 hidden">
+      <h2 class="text-xl font-semibold text-white mb-5 flex items-center section-title">
+        <i class="fas fa-tasks mr-3 text-purple-400"></i>
+        Operation Progress
+      </h2>
+      <div class="space-y-5">
+        <div>
+          <div class="flex justify-between mb-2">
+            <span id="progressText" class="text-sm font-medium text-gray-300">Initializing...</span>
+            <span id="progressPercent" class="text-sm font-medium text-gray-300">0%</span>
+          </div>
+          <div class="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
+            <div id="progressBar" class="progress-bar h-3 rounded-full w-0 transition-all duration-500"></div>
+          </div>
+        </div>
+        <div id="progressDetails" class="text-sm text-gray-400 italic"></div>
+      </div>
+    </div>
+    
+    <!-- Log Section -->
+    <div class="glass-card p-6 rounded-xl">
+      <div class="flex justify-between items-center mb-5">
+        <h2 class="text-xl font-semibold text-white flex items-center section-title">
+          <i class="fas fa-terminal mr-3 text-yellow-400"></i>
+          Operation Log
+        </h2>
+        <button id="clearLogBtn" class="btn-secondary text-sm px-4 py-2 rounded-lg transition-colors floating-action">
+          <i class="fas fa-trash-alt mr-2"></i> Clear Log
+        </button>
+      </div>
+      <div class="divider my-4"></div>
+      <pre id="log" class="log-container p-4 rounded-xl h-64 overflow-auto text-sm text-gray-300"></pre>
+    </div>
+  </div>
+
+  <!-- Warning Modal -->
+  <div id="warningModal" class="modal-overlay fixed inset-0 flex items-center justify-center hidden z-50">
+    <div class="modal-content rounded-2xl p-8 max-w-md w-full mx-4">
+      <div class="flex items-center mb-5">
+        <i class="fas fa-exclamation-triangle text-yellow-500 text-2xl mr-4"></i>
+        <h3 class="text-2xl font-bold text-white">Warning</h3>
+      </div>
+      <p class="mb-7 text-gray-300">Formatting will erase all data on the USB drive. This action cannot be undone. Are you sure you want to continue?</p>
+      <div class="flex justify-end gap-4">
+        <button id="cancelFormatBtn" class="btn-secondary px-5 py-3 rounded-xl transition-colors floating-action">Cancel</button>
+        <button id="confirmFormatBtn" class="btn-danger px-5 py-3 rounded-xl transition-colors floating-action">Format Drive</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// FAT32 Implementation
+class FAT32Formatter {
+  constructor() {
+    this.bytesPerSector = 512;
+    this.sectorsPerCluster = 8;
+    this.reservedSectors = 32;
+    this.numberOfFATs = 2;
+    this.rootDirEntries = 0; // FAT32 uses cluster for root
+    this.totalSectors = 0;
+    this.mediaDescriptor = 0xF8;
+    this.sectorsPerFAT = 0;
+    this.hiddenSectors = 0;
+    this.driveNumber = 0x80;
+    this.signature = 0x29;
+    this.volumeID = 0x12345678;
+    this.volumeLabel = "NO NAME    ";
+    this.fileSystemType = "FAT32   ";
+  }
+
+  createBootSector(totalSectors) {
+    this.totalSectors = totalSectors;
+    
+    // Calculate FAT size
+    const dataSectors = totalSectors - this.reservedSectors;
+    const clusters = Math.floor(dataSectors / this.sectorsPerCluster);
+    this.sectorsPerFAT = Math.ceil((clusters * 4) / this.bytesPerSector);
+    
+    const bootSector = new Uint8Array(this.bytesPerSector);
+    const view = new DataView(bootSector.buffer);
+    
+    // Jump instruction
+    bootSector[0] = 0xEB;
+    bootSector[1] = 0x58;
+    bootSector[2] = 0x90;
+    
+    // OEM Name
+    this.writeString(bootSector, 3, "MSWIN4.1");
+    
+    // Bytes per sector
+    view.setUint16(11, this.bytesPerSector, true);
+    
+    // Sectors per cluster
+    bootSector[13] = this.sectorsPerCluster;
+    
+    // Reserved sectors
+    view.setUint16(14, this.reservedSectors, true);
+    
+    // Number of FATs
+    bootSector[16] = this.numberOfFATs;
+    
+    // Root entries (0 for FAT32)
+    view.setUint16(17, this.rootDirEntries, true);
+    
+    // Total sectors (small)
+    view.setUint16(19, 0, true);
+    
+    // Media descriptor
+    bootSector[21] = this.mediaDescriptor;
+    
+    // Sectors per FAT (0 for FAT32, real value at offset 36)
+    view.setUint16(22, 0, true);
+    
+    // Sectors per track
+    view.setUint16(24, 63, true);
+    
+    // Number of heads
+    view.setUint16(26, 255, true);
+    
+    // Hidden sectors
+    view.setUint32(28, this.hiddenSectors, true);
+    
+    // Total sectors (large)
+    view.setUint32(32, totalSectors, true);
+    
+    // Sectors per FAT (FAT32)
+    view.setUint32(36, this.sectorsPerFAT, true);
+    
+    // Extended flags
+    view.setUint16(40, 0, true);
+    
+    // FAT version
+    view.setUint16(42, 0, true);
+    
+    // Root directory cluster
+    view.setUint32(44, 2, true);
+    
+    // FSInfo sector
+    view.setUint16(48, 1, true);
+    
+    // Backup boot sector
+    view.setUint16(50, 6, true);
+    
+    // Drive number
+    bootSector[64] = this.driveNumber;
+    
+    // Reserved
+    bootSector[65] = 0;
+    
+    // Extended boot signature
+    bootSector[66] = 0x29;
+    
+    // Volume ID
+    view.setUint32(67, this.volumeID, true);
+    
+    // Volume label
+    this.writeString(bootSector, 71, this.volumeLabel);
+    
+    // File system type
+    this.writeString(bootSector, 82, this.fileSystemType);
+    
+    // Boot signature
+    view.setUint16(510, 0xAA55, true);
+    
+    return bootSector;
+  }
+
+  createFSInfoSector() {
+    const fsinfo = new Uint8Array(this.bytesPerSector);
+    const view = new DataView(fsinfo.buffer);
+    
+    // Lead signature
+    view.setUint32(0, 0x41615252, true);
+    
+    // Another signature
+    view.setUint32(484, 0x61417272, true);
+    
+    // Last known free cluster count
+    view.setUint32(488, 0xFFFFFFFF, true);
+    
+    // Most recently allocated cluster
+    view.setUint32(492, 0xFFFFFFFF, true);
+    
+    // Trail signature
+    view.setUint32(508, 0xAA550000, true);
+    
+    return fsinfo;
+  }
+
+  createFATTable(totalClusters) {
+    const fatSize = this.sectorsPerFAT * this.bytesPerSector;
+    const fat = new Uint8Array(fatSize);
+    const view = new DataView(fat.buffer);
+    
+    // First 2 clusters are reserved
+    view.setUint32(0, 0x0FFFFFF8, true); // Media descriptor in low byte
+    view.setUint32(4, 0xFFFFFFFF, true);
+    view.setUint32(8, 0x0FFFFFFF, true); // End of cluster chain for root
+    
+    // Mark remaining clusters as free
+    for (let i = 3; i < totalClusters; i++) {
+      if (i * 4 < fatSize) {
+        view.setUint32(i * 4, 0, true);
+      }
+    }
+    
+    return fat;
+  }
+
+  createRootDirectory() {
+    const rootDir = new Uint8Array(this.bytesPerSector * this.sectorsPerCluster);
+    
+    // Volume label entry
+    this.createDirectoryEntry(rootDir, 0, this.volumeLabel, 0x08, new Date());
+    
+    return rootDir;
+  }
+
+  createDirectoryEntry(buffer, offset, name, attributes, date) {
+    // 8.3 filename
+    const nameBytes = new TextEncoder().encode(name.padEnd(11, ' '));
+    
+    for (let i = 0; i < 11; i++) {
+      buffer[offset + i] = nameBytes[i];
+    }
+    
+    // Attributes
+    buffer[offset + 11] = attributes;
+    
+    // Create time/date
+    const time = this.dateToFatTime(date);
+    const fatDate = this.dateToFatDate(date);
+    
+    const view = new DataView(buffer.buffer, offset);
+    view.setUint16(22, time, true); // Create time
+    view.setUint16(24, fatDate, true); // Create date
+    view.setUint16(18, time, true); // Last access time (simplified)
+    view.setUint16(16, fatDate, true); // Last access date (simplified)
+    
+    // First cluster high (0 for root)
+    view.setUint16(20, 0, true);
+    
+    // Write time/date
+    view.setUint16(14, time, true);
+    view.setUint16(16, fatDate, true);
+    
+    // First cluster low
+    view.setUint16(26, 2, true); // Root directory is cluster 2
+    
+    // File size
+    view.setUint32(28, 0, true);
+  }
+
+  dateToFatTime(date) {
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const seconds = Math.floor(date.getSeconds() / 2);
+    return (hours << 11) | (minutes << 5) | seconds;
+  }
+
+  dateToFatDate(date) {
+    const year = date.getFullYear() - 1980;
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return (year << 9) | (month << 5) | day;
+  }
+
+  writeString(buffer, offset, str) {
+    const encoder = new TextEncoder();
+    const encoded = encoder.encode(str);
+    for (let i = 0; i < encoded.length && offset + i < buffer.length; i++) {
+      buffer[offset + i] = encoded[i];
+    }
+  }
+
+  async formatDevice(device, progressCallback) {
+    try {
+      progressCallback(0, "Creating boot sector...");
+      
+      // Estimate total sectors (assuming 1GB drive for calculation)
+      const totalSectors = 2 * 1024 * 1024; // 1GB in sectors (512 bytes each)
+      
+      const bootSector = this.createBootSector(totalSectors);
+      const fsinfo = this.createFSInfoSector();
+      const totalClusters = Math.floor((totalSectors - this.reservedSectors) / this.sectorsPerCluster);
+      const fat = this.createFATTable(totalClusters);
+      const rootDir = this.createRootDirectory();
+      
+      progressCallback(20, "Writing boot sector and FSInfo...");
+      
+      // Write boot sector
+      await device.transferOut(1, bootSector);
+      
+      // Write FSInfo sector
+      await device.transferOut(1, fsinfo);
+      
+      progressCallback(40, "Writing FAT tables...");
+      
+      // Write FAT tables
+      for (let i = 0; i < this.numberOfFATs; i++) {
+        await device.transferOut(1, fat);
+      }
+      
+      progressCallback(80, "Writing root directory...");
+      
+      // Write root directory
+      await device.transferOut(1, rootDir);
+      
+      progressCallback(100, "Format complete!");
+      
+      return true;
+    } catch (error) {
+      throw new Error(`Format failed: ${error.message}`);
+    }
+  }
+
+  async writeFile(device, file, progressCallback) {
+    try {
+      progressCallback(0, "Reading file...");
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const fileData = new Uint8Array(arrayBuffer);
+      
+      progressCallback(20, "Preparing file data...");
+      
+      // Create directory entry
+      const entry = new Uint8Array(32);
+      const shortName = this.createShortName(file.name);
+      this.createDirectoryEntry(entry, 0, shortName, 0x20, new Date());
+      
+      const view = new DataView(entry.buffer);
+      view.setUint32(28, fileData.length, true);
+      
+      progressCallback(40, "Writing directory entry...");
+      await device.transferOut(1, entry);
+      
+      progressCallback(60, "Writing file data...");
+      
+      // Write file data in chunks
+      const chunkSize = 4096;
+      for (let i = 0; i < fileData.length; i += chunkSize) {
+        const chunk = fileData.slice(i, i + chunkSize);
+        await device.transferOut(1, chunk);
+        
+        const progress = 60 + Math.floor((i / fileData.length) * 40);
+        progressCallback(progress, `Writing data... ${Math.floor(i / 1024)}KB / ${Math.floor(fileData.length / 1024)}KB`);
+      }
+      
+      progressCallback(100, "File write complete!");
+      
+      return true;
+    } catch (error) {
+      throw new Error(`File write failed: ${error.message}`);
+    }
+  }
+
+  createShortName(longName) {
+    // Simple 8.3 name conversion
+    const nameParts = longName.split('.');
+    let name = nameParts[0].toUpperCase().replace(/[^A-Z0-9]/g, '_').substring(0, 8);
+    let ext = nameParts.length > 1 ? nameParts[1].toUpperCase().replace(/[^A-Z0-9]/g, '_').substring(0, 3) : '';
+    
+    return name.padEnd(8, ' ') + (ext ? '.' + ext.padEnd(3, ' ') : '       ');
+  }
+}
+
+// UI Implementation
+const logEl = document.getElementById('log');
+const connectBtn = document.getElementById('connectBtn');
+const formatBtn = document.getElementById('formatBtn');
+const writeBtn = document.getElementById('writeBtn');
+const fileInput = document.getElementById('fileInput');
+const clearLogBtn = document.getElementById('clearLogBtn');
+const statusIcon = document.getElementById('statusIcon');
+const statusText = document.getElementById('statusText');
+const deviceInfo = document.getElementById('deviceInfo');
+const deviceName = document.getElementById('deviceName');
+const progressSection = document.getElementById('progressSection');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
+const progressPercent = document.getElementById('progressPercent');
+const progressDetails = document.getElementById('progressDetails');
+const warningModal = document.getElementById('warningModal');
+const cancelFormatBtn = document.getElementById('cancelFormatBtn');
+const confirmFormatBtn = document.getElementById('confirmFormatBtn');
+const ejectBtn = document.getElementById('ejectBtn');
+
+let device;
+let isConnected = false;
+const formatter = new FAT32Formatter();
+
+function log(msg, type = 'info') {
+  const timestamp = new Date().toLocaleTimeString();
+  const prefix = type === 'error' ? '❌ ERROR:' : type === 'success' ? '✅ SUCCESS:' : 'ℹ️ INFO:';
+  const logEntry = `[${timestamp}] ${prefix} ${msg}`;
+  
+  console.log(logEntry);
+  logEl.textContent += logEntry + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function updateStatus(status, type = 'disconnected') {
+  statusText.textContent = status;
+  
+  // Reset all classes
+  statusIcon.className = 'w-4 h-4 rounded-full mr-3';
+  
+  switch(type) {
+    case 'connected':
+      statusIcon.classList.add('status-connected');
+      ejectBtn.disabled = false;
+      break;
+    case 'error':
+      statusIcon.classList.add('status-error');
+      ejectBtn.disabled = true;
+      break;
+    case 'processing':
+      statusIcon.classList.add('status-processing');
+      ejectBtn.disabled = true;
+      break;
+    default:
+      statusIcon.classList.add('bg-gray-500');
+      ejectBtn.disabled = true;
+  }
+}
+
+function updateProgress(percent, text, details = '') {
+  progressBar.style.width = `${percent}%`;
+  progressPercent.textContent = `${percent}%`;
+  progressText.textContent = text;
+  progressDetails.textContent = details;
+}
+
+function showProgress() {
+  progressSection.classList.remove('hidden');
+}
+
+function hideProgress() {
+  progressSection.classList.add('hidden');
+}
+
+// Connect to USB
+connectBtn.addEventListener('click', async () => {
+  try {
+    if (!navigator.usb) {
+      log('WebUSB is not supported in this browser. Try using Chrome or Edge.', 'error');
+      updateStatus('WebUSB not supported', 'error');
+      return;
+    }
+    
+    updateStatus('Selecting device...', 'processing');
+    log('Requesting USB device access...');
+    
+    device = await navigator.usb.requestDevice({
+      filters: [] // Allow all devices for now
+    });
+    
+    log(`Selected device: ${device.productName || 'Unknown'} (${device.manufacturerName || 'Unknown Manufacturer'})`);
+    
+    updateStatus('Connecting...', 'processing');
+    await device.open();
+    
+    // Select configuration and claim interface
+    await device.selectConfiguration(1);
+    
+    // Find mass storage interface
+    let massStorageInterface = null;
+    for (const iface of device.configuration.interfaces) {
+      if (iface.alternate.interfaceClass === 8) { // Mass Storage Class
+        massStorageInterface = iface;
+        break;
+      }
+    }
+    
+    if (!massStorageInterface) {
+      throw new Error('No mass storage interface found');
+    }
+    
+    await device.claimInterface(massStorageInterface.interfaceNumber);
+    
+    isConnected = true;
+    formatBtn.disabled = false;
+    writeBtn.disabled = false;
+    
+    deviceName.textContent = device.productName || 'Unknown Device';
+    deviceInfo.classList.remove('hidden');
+    
+    updateStatus('Connected', 'connected');
+    log('Device connected successfully', 'success');
+    
+  } catch(e) {
+    log("Connection error: " + e.message, 'error');
+    updateStatus('Connection failed', 'error');
+  }
+});
+
+// Eject USB
+ejectBtn.addEventListener('click', async () => {
+  if (!device) {
+    log('No device connected', 'error');
+    return;
+  }
+  
+  try {
+    updateStatus('Ejecting...', 'processing');
+    log('Ejecting USB device...');
+    
+    // Close the device connection
+    await device.close();
+    
+    isConnected = false;
+    formatBtn.disabled = true;
+    writeBtn.disabled = true;
+    ejectBtn.disabled = true;
+    
+    deviceInfo.classList.add('hidden');
+    
+    updateStatus('Disconnected', 'disconnected');
+    log('Device ejected successfully', 'success');
+    
+  } catch(e) {
+    log("Eject error: " + e.message, 'error');
+    updateStatus('Eject failed', 'error');
+  }
+});
+
+// Format FAT32
+formatBtn.addEventListener('click', () => {
+  warningModal.classList.remove('hidden');
+});
+
+cancelFormatBtn.addEventListener('click', () => {
+  warningModal.classList.add('hidden');
+});
+
+confirmFormatBtn.addEventListener('click', async () => {
+  warningModal.classList.add('hidden');
+  
+  if (!device) {
+    log('No device connected', 'error');
+    return;
+  }
+  
+  try {
+    showProgress();
+    
+    await formatter.formatDevice(device, (percent, text, details) => {
+      updateProgress(percent, text, details);
+      log(text);
+    });
+    
+    log("FAT32 format completed successfully", 'success');
+    
+    setTimeout(() => {
+      hideProgress();
+    }, 2000);
+    
+  } catch(e) {
+    log("Error during formatting: " + e.message, 'error');
+    updateStatus('Format failed', 'error');
+    hideProgress();
+  }
+});
+
+// Write File
+writeBtn.addEventListener('click', async () => {
+  if (!fileInput.files.length) {
+    log("No file selected", 'error');
+    return;
+  }
+  
+  if (!device) {
+    log("No device connected", 'error');
+    return;
+  }
+  
+  const file = fileInput.files[0];
+  
+  try {
+    showProgress();
+    
+    await formatter.writeFile(device, file, (percent, text, details) => {
+      updateProgress(percent, text, details);
+      if (percent % 20 === 0) log(text);
+    });
+    
+    log(`File "${file.name}" written successfully`, 'success');
+    
+    setTimeout(() => {
+      hideProgress();
+    }, 2000);
+    
+  } catch(e) {
+    log("Error writing file: " + e.message, 'error');
+    updateStatus('Write failed', 'error');
+    hideProgress();
+  }
+});
+
+// Clear log
+clearLogBtn.addEventListener('click', () => {
+  logEl.textContent = '';
+  log('Log cleared');
+});
+
+// Initial log message
+log('WebUSB FAT32 Writer initialized. Connect a USB drive to begin.');
+</script>
+</body>
+</html>
