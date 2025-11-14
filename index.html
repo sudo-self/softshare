@@ -10,6 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 </head>
 <body class="bg-black text-white min-h-screen antialiased">
+
   <header class="p-6 text-center border-b border-neutral-800">
     <h1 class="text-3xl font-bold">SoftShare Downloads</h1>
     <p class="text-neutral-400 mt-1">Open‑source & software packages — simple static host.</p>
@@ -33,53 +34,81 @@
   </section>
 
   <script>
-    // UTIL
+    const user = 'sudo-self';
+    const repo = 'softshare';
+    const folder = 'files';
+
+    // FORMAT FILE SIZE
     const fmtSize = n => {
       if (n < 1024) return n + ' B';
       if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
-      if (n < 1024*1024*1024) return (n/1024/1024).toFixed(1) + ' MB';
-      return (n/1024/1024/1024).toFixed(2) + ' GB';
+      if (n < 1024*1024*1024) return (n/1024/1024).toFixed(1) + ' MB';
+      return (n/1024/1024/1024).toFixed(2) + ' GB';
     };
 
-    // LOAD FILE LIST
+    // COPY LINK
+    function copyLink(url) {
+      navigator.clipboard.writeText(url).then(() => {
+        alert('Copied: ' + url);
+      });
+    }
+
+    // SHOW QR
+    function showQR(url) {
+      const id = 'qr-' + url.split('/').pop();
+      let box = document.getElementById(id);
+      if (!box) return;
+
+      if (!box.classList.contains('hidden')) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        return;
+      }
+
+      box.classList.remove('hidden');
+      QRCode.toCanvas(document.createElement('canvas'), url)
+        .then(canvas => box.appendChild(canvas))
+        .catch(err => box.textContent = 'QR generation failed');
+    }
+
+    // LOAD FILES FROM GITHUB
     async function loadFiles() {
       try {
-        const res = await fetch('./files.json');
+        const res = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${folder}`);
         const files = await res.json();
         const grid = document.getElementById('fileGrid');
         grid.innerHTML = '';
 
-        files.forEach(file => {
-          const url = `./files/${file.file}`;
-          const ext = file.file.split('.').pop().toLowerCase();
-          // pick icon based on type
-          const icon = ext === 'zip' ? '📦' : ext === 'exe' ? '💻' : ext === 'apk' ? '📱' : '📄';
+        files.forEach(f => {
+          if (f.type !== 'file') return;
+
+          const name = f.name;
+          const ext = name.split('.').pop().toUpperCase();
+          const url = f.download_url;
+          const size = fmtSize(f.size);
 
           const card = document.createElement('div');
           card.className = 'bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex flex-col justify-between';
-          card.setAttribute('data-name', (file.name + file.description).toLowerCase());
+          card.setAttribute('data-name', name.toLowerCase());
 
           card.innerHTML = `
             <div>
-              <div class="text-4xl mb-2">${icon}</div>
-              <h3 class="font-semibold text-lg mb-1 text-white truncate">${file.name}</h3>
-              <p class="text-sm text-neutral-400 mb-3 truncate">${file.description}</p>
+              <h3 class="font-semibold text-lg mb-1 text-white truncate">${name}</h3>
+              <p class="text-sm text-neutral-400 mb-3">${ext} file • ${size}</p>
             </div>
-
             <div class="flex gap-2 flex-wrap">
               <a href="${url}" download class="px-3 py-1 bg-blue-600 rounded hover:bg-blue-700 text-sm">Download</a>
               <button class="px-3 py-1 bg-neutral-700 rounded hover:bg-neutral-600 text-sm" onclick="copyLink('${url}')">Copy Link</button>
               <button class="px-3 py-1 bg-neutral-700 rounded hover:bg-neutral-600 text-sm" onclick="showQR('${url}')">QR</button>
             </div>
-
-            <div id="qr-${file.file}" class="hidden mt-3"></div>
+            <div id="qr-${name}" class="hidden mt-3"></div>
           `;
 
           grid.appendChild(card);
         });
 
-      } catch (e) {
-        console.error('Failed to load files.json', e);
+      } catch (err) {
+        console.error('Failed to load files from GitHub API', err);
       }
     }
 
@@ -94,26 +123,6 @@
         card.style.display = text.includes(val) ? '' : 'none';
       });
     });
-
-    // COPY LINK
-    function copyLink(url) {
-      const full = location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/' + url;
-      navigator.clipboard.writeText(full).then(() => {
-        alert('Copied: ' + full);
-      });
-    }
-
-    // SHOW QR
-    function showQR(url) {
-      const id = 'qr-' + url.split('/').pop();
-      const box = document.getElementById(id);
-      if (!box) return;
-      if (!box.classList.contains('hidden')) { box.classList.add('hidden'); box.innerHTML = ''; return; }
-      box.classList.remove('hidden');
-      QRCode.toCanvas(document.createElement('canvas'), location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/' + url)
-        .then(canvas => box.appendChild(canvas))
-        .catch(err => box.textContent = 'QR failed');
-    }
 
     // LOCAL DRAG + DROP PREVIEW
     const dropZone = document.getElementById('dropZone');
@@ -132,10 +141,12 @@
       const files = e.dataTransfer.files;
       for (let f of files) {
         const li = document.createElement('li');
-        li.textContent = `${f.name} (${Math.round(f.size/1024)} KB)`;
+        li.textContent = `${f.name} (${Math.round(f.size/1024)} KB)`;
         localList.appendChild(li);
       }
     });
   </script>
+
 </body>
 </html>
+
