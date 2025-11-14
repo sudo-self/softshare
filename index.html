@@ -16,21 +16,22 @@
     <p class="text-neutral-400 mt-1">Open‑source & software packages — simple static host.</p>
   </header>
 
+  <!-- Featured Downloads -->
   <section class="max-w-4xl mx-auto p-6">
     <div class="mb-4 flex items-center justify-between">
-      <h2 class="text-xl font-semibold">Featured Downloads</h2>
+      <h2 class="text-xl font-semibold">Downloads</h2>
       <input id="searchInput" type="text" placeholder="Search…" class="px-3 py-2 bg-neutral-900 border border-neutral-700 rounded text-sm text-neutral-300 focus:outline-none focus:border-blue-500" />
     </div>
     <div id="fileGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
   </section>
 
+  <!-- Local Upload -->
   <section class="max-w-4xl mx-auto p-6 border-t border-neutral-800">
     <h2 class="text-xl font-semibold mb-4">Upload (Local Preview Only)</h2>
     <div id="dropZone" class="border border-neutral-700 rounded-xl p-10 text-center bg-neutral-900/40 hover:bg-neutral-800 cursor-pointer transition">
       <p class="text-neutral-300">Drag & Drop files here</p>
-      <p class="text-neutral-600 text-sm">Files not saved – this is preview only.</p>
+      <p class="text-neutral-600 text-sm">Files not saved — preview only. Optional description supported.</p>
     </div>
-    <ul id="localList" class="mt-4 text-neutral-300 space-y-2"></ul>
   </section>
 
   <script>
@@ -71,42 +72,56 @@
         .catch(err => box.textContent = 'QR generation failed');
     }
 
-    // LOAD FILES FROM GITHUB
+    // CREATE CARD FUNCTION
+    function createCard({ name, url, size, description = '' }) {
+      const ext = name.split('.').pop().toUpperCase();
+      const card = document.createElement('div');
+      card.className = 'bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex flex-col justify-between';
+      card.setAttribute('data-name', (name + description).toLowerCase());
+
+      card.innerHTML = `
+        <div>
+          <h3 class="font-semibold text-lg mb-1 text-white truncate">${name}</h3>
+          <p class="text-sm text-neutral-400 mb-3 truncate">${ext} file • ${size}${description ? ' • ' + description : ''}</p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+          <a href="${url}" download class="px-3 py-1 bg-blue-600 rounded hover:bg-blue-700 text-sm">Download</a>
+          <button class="px-3 py-1 bg-neutral-700 rounded hover:bg-neutral-600 text-sm" onclick="copyLink('${url}')">Copy Link</button>
+          <button class="px-3 py-1 bg-neutral-700 rounded hover:bg-neutral-600 text-sm" onclick="showQR('${url}')">QR</button>
+        </div>
+        <div id="qr-${name}" class="hidden mt-3"></div>
+      `;
+
+      return card;
+    }
+
+    // LOAD FILES FROM GitHub (with optional description from files.json if exists)
     async function loadFiles() {
       try {
+        const grid = document.getElementById('fileGrid');
+
+        // Fetch file metadata from your GitHub repo
         const res = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${folder}`);
         const files = await res.json();
-        const grid = document.getElementById('fileGrid');
-        grid.innerHTML = '';
+
+        // Try fetching local files.json for descriptions
+        let descriptions = {};
+        try {
+          const dres = await fetch('./files.json');
+          const data = await dres.json();
+          data.forEach(f => { descriptions[f.file] = f.description || ''; });
+        } catch(e){ console.log('No files.json or failed to load descriptions') }
 
         files.forEach(f => {
           if (f.type !== 'file') return;
-
-          const name = f.name;
-          const ext = name.split('.').pop().toUpperCase();
-          const url = f.download_url;
-          const size = fmtSize(f.size);
-
-          const card = document.createElement('div');
-          card.className = 'bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex flex-col justify-between';
-          card.setAttribute('data-name', name.toLowerCase());
-
-          card.innerHTML = `
-            <div>
-              <h3 class="font-semibold text-lg mb-1 text-white truncate">${name}</h3>
-              <p class="text-sm text-neutral-400 mb-3">${ext} file • ${size}</p>
-            </div>
-            <div class="flex gap-2 flex-wrap">
-              <a href="${url}" download class="px-3 py-1 bg-blue-600 rounded hover:bg-blue-700 text-sm">Download</a>
-              <button class="px-3 py-1 bg-neutral-700 rounded hover:bg-neutral-600 text-sm" onclick="copyLink('${url}')">Copy Link</button>
-              <button class="px-3 py-1 bg-neutral-700 rounded hover:bg-neutral-600 text-sm" onclick="showQR('${url}')">QR</button>
-            </div>
-            <div id="qr-${name}" class="hidden mt-3"></div>
-          `;
-
+          const card = createCard({
+            name: f.name,
+            url: f.download_url,
+            size: fmtSize(f.size),
+            description: descriptions[f.name] || ''
+          });
           grid.appendChild(card);
         });
-
       } catch (err) {
         console.error('Failed to load files from GitHub API', err);
       }
@@ -126,27 +141,30 @@
 
     // LOCAL DRAG + DROP PREVIEW
     const dropZone = document.getElementById('dropZone');
-    const localList = document.getElementById('localList');
+    const grid = document.getElementById('fileGrid');
 
     dropZone.addEventListener('dragover', e => {
       e.preventDefault();
       dropZone.classList.add('bg-neutral-800');
     });
+
     dropZone.addEventListener('dragleave', () => {
       dropZone.classList.remove('bg-neutral-800');
     });
+
     dropZone.addEventListener('drop', e => {
       e.preventDefault();
       dropZone.classList.remove('bg-neutral-800');
+
       const files = e.dataTransfer.files;
-      for (let f of files) {
-        const li = document.createElement('li');
-        li.textContent = `${f.name} (${Math.round(f.size/1024)} KB)`;
-        localList.appendChild(li);
-      }
+      Array.from(files).forEach(f => {
+        const description = prompt(`Optional description for "${f.name}":`) || '';
+        const url = URL.createObjectURL(f);
+        const card = createCard({ name: f.name, url, size: fmtSize(f.size), description });
+        grid.prepend(card); // add new files to top
+      });
     });
   </script>
-
 </body>
 </html>
 
