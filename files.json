@@ -1,12 +1,5 @@
 [
   {
-    "name": "Tiny Windows 11",
-    "file": "TINY11.torrent",
-    "description": "Tiny Windows 11"
-  }
-]
-[
-  {
     "name": "Windows 10 x64",
     "file": "WIN10x64.torrent",
     "description": "Top 100 charts EDM"
@@ -14,11 +7,18 @@
 ]
 [
   {
-    "name": "EDM100 Torrent",
-    "file": "EDM100.torrent",
-    "description": "EDM100 music collection torrent file."
+    "name": "Windows 11 x64",
+    "file": "TINY11.torrent",
+    "description": "Tiny Windows 11"
   }
 ]
+ [
+   {
+     "name": "Activate Windows",
+     "file": "ActivateAll.cmd",
+     "description": "All versions"
+   }
+ ]
  [
    {
      "name": "Colorado Flag SVG",
@@ -26,4 +26,12 @@
      "description": "Colorado Flag vector graphic"
    }
  ]
+
+[
+  {
+    "name": "EDM100 Torrent",
+    "file": "EDM100.torrent",
+    "description": "Top 100 charts EDM"
+  }
+]
 
