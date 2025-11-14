@@ -1,0 +1,141 @@
+<!-- softshare -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SoftShare Downloads</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+</head>
+<body class="bg-black text-white min-h-screen antialiased">
+  <header class="p-6 text-center border-b border-neutral-800">
+    <h1 class="text-3xl font-bold">SoftShare Downloads</h1>
+    <p class="text-neutral-400 mt-1">Open‑source & software packages — simple static host.</p>
+  </header>
+
+  <section class="max-w-4xl mx-auto p-6">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-xl font-semibold">Featured Downloads</h2>
+      <input id="searchInput" type="text" placeholder="Search…" class="px-3 py-2 bg-neutral-900 border border-neutral-700 rounded text-sm text-neutral-300 focus:outline-none focus:border-blue-500" />
+    </div>
+    <div id="fileGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  </section>
+
+  <section class="max-w-4xl mx-auto p-6 border-t border-neutral-800">
+    <h2 class="text-xl font-semibold mb-4">Upload (Local Preview Only)</h2>
+    <div id="dropZone" class="border border-neutral-700 rounded-xl p-10 text-center bg-neutral-900/40 hover:bg-neutral-800 cursor-pointer transition">
+      <p class="text-neutral-300">Drag & Drop files here</p>
+      <p class="text-neutral-600 text-sm">Files not saved – this is preview only.</p>
+    </div>
+    <ul id="localList" class="mt-4 text-neutral-300 space-y-2"></ul>
+  </section>
+
+  <script>
+    // UTIL
+    const fmtSize = n => {
+      if (n < 1024) return n + ' B';
+      if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+      if (n < 1024*1024*1024) return (n/1024/1024).toFixed(1) + ' MB';
+      return (n/1024/1024/1024).toFixed(2) + ' GB';
+    };
+
+    // LOAD FILE LIST
+    async function loadFiles() {
+      try {
+        const res = await fetch('./files.json');
+        const files = await res.json();
+        const grid = document.getElementById('fileGrid');
+        grid.innerHTML = '';
+
+        files.forEach(file => {
+          const url = `./files/${file.file}`;
+          const ext = file.file.split('.').pop().toLowerCase();
+          // pick icon based on type
+          const icon = ext === 'zip' ? '📦' : ext === 'exe' ? '💻' : ext === 'apk' ? '📱' : '📄';
+
+          const card = document.createElement('div');
+          card.className = 'bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex flex-col justify-between';
+          card.setAttribute('data-name', (file.name + file.description).toLowerCase());
+
+          card.innerHTML = `
+            <div>
+              <div class="text-4xl mb-2">${icon}</div>
+              <h3 class="font-semibold text-lg mb-1 text-white truncate">${file.name}</h3>
+              <p class="text-sm text-neutral-400 mb-3 truncate">${file.description}</p>
+            </div>
+
+            <div class="flex gap-2 flex-wrap">
+              <a href="${url}" download class="px-3 py-1 bg-blue-600 rounded hover:bg-blue-700 text-sm">Download</a>
+              <button class="px-3 py-1 bg-neutral-700 rounded hover:bg-neutral-600 text-sm" onclick="copyLink('${url}')">Copy Link</button>
+              <button class="px-3 py-1 bg-neutral-700 rounded hover:bg-neutral-600 text-sm" onclick="showQR('${url}')">QR</button>
+            </div>
+
+            <div id="qr-${file.file}" class="hidden mt-3"></div>
+          `;
+
+          grid.appendChild(card);
+        });
+
+      } catch (e) {
+        console.error('Failed to load files.json', e);
+      }
+    }
+
+    loadFiles();
+
+    // SEARCH FILTER
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', () => {
+      const val = searchInput.value.toLowerCase();
+      document.querySelectorAll('#fileGrid > div').forEach(card => {
+        const text = card.getAttribute('data-name');
+        card.style.display = text.includes(val) ? '' : 'none';
+      });
+    });
+
+    // COPY LINK
+    function copyLink(url) {
+      const full = location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/' + url;
+      navigator.clipboard.writeText(full).then(() => {
+        alert('Copied: ' + full);
+      });
+    }
+
+    // SHOW QR
+    function showQR(url) {
+      const id = 'qr-' + url.split('/').pop();
+      const box = document.getElementById(id);
+      if (!box) return;
+      if (!box.classList.contains('hidden')) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      box.classList.remove('hidden');
+      QRCode.toCanvas(document.createElement('canvas'), location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/' + url)
+        .then(canvas => box.appendChild(canvas))
+        .catch(err => box.textContent = 'QR failed');
+    }
+
+    // LOCAL DRAG + DROP PREVIEW
+    const dropZone = document.getElementById('dropZone');
+    const localList = document.getElementById('localList');
+
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('bg-neutral-800');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('bg-neutral-800');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('bg-neutral-800');
+      const files = e.dataTransfer.files;
+      for (let f of files) {
+        const li = document.createElement('li');
+        li.textContent = `${f.name} (${Math.round(f.size/1024)} KB)`;
+        localList.appendChild(li);
+      }
+    });
+  </script>
+</body>
+</html>
